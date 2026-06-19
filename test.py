@@ -1,25 +1,25 @@
 import os
-import json
+import shutil
 from dotenv import load_dotenv
-from kaggle.api.kaggle_api_extended import KaggleApi
-import kagglehub
-
 
 load_dotenv()
 
-with open ('appsetting.json') as f:
-    setting = json.load(f)
+os.environ['KAGGLEHUB_CACHE'] = os.path.abspath('./rawdata')
+os.environ['KAGGLE_API_TOKEN'] = os.getenv('KaggleAPIKey')
 
-os.environ['KAGGLE_USERNAME'] = "tjeeiv"
-os.environ['KAGGLE_KEY'] =  "KGAT_d3b43b466a39d0acb1d036864e79a166"
+import kagglehub
+cache_path = kagglehub.dataset_download("olistbr/brazilian-ecommerce")
+print("Downloaded to:", cache_path)
 
-api = KaggleApi()
-api.authenticate()
-        
-# api.dataset_download_files(  setting["Kaggle"]["DatasetName"] ,path=setting["Kaggle"]["DownloadPath"],unzip=True)
- 
-path = kagglehub.dataset_download("olistbr/brazilian-ecommerce")
+# Copy files to your clean target folder
+destination = "./data"
+os.makedirs(destination, exist_ok=True)
 
-print("Path to dataset files:", path)
+for file in os.listdir(cache_path):
+    src = os.path.join(cache_path, file)
+    dst = os.path.join(destination, file)
+    if os.path.isfile(src):
+        shutil.copy(src, dst)
 
- #KGAT_d3b43b466a39d0acb1d036864e79a166
+print("Files copied to:", destination)
+print("Files:", os.listdir(destination))

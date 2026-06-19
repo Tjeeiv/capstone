@@ -7,6 +7,10 @@ if st.button("Get Dataset"):
     with st.spinner("Downloading data from Kaggle.."):
         try:
 
-            path = getdata()
+            uploadedfiles = getdata()
+
+            st.write(f"Number of files uploaded : {len(uploadedfiles) }")
+            st.write("***Files***", uploadedfiles)
+
         except Exception as e:
             st.error(f"Error:{e}")
