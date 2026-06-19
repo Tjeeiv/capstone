@@ -1,6 +1,6 @@
 {
     "Kaggle":{
         "DatasetName": "" ,
-        "DownloadPath": "./data"
+        "DownloadPath": "./rawdata/data"
     }
 }
