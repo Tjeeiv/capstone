@@ -1,22 +1,62 @@
 import os
+import shutil
 import json
 from dotenv import load_dotenv
 from kaggle.api.kaggle_api_extended import KaggleApi
+import kagglehub
+import snowflake.connector
+
+
+
+def get_snowflake_connection():
+    load_dotenv()
+    conn = snowflake.connector.connect(
+        user=os.getenv('SNOWFLAKE_USER'),
+        password=os.getenv('SNOWFLAKE_PASSWORD'),
+        account=os.getenv('SNOWFLAKE_ACCOUNT'),
+        warehouse=os.getenv('SNOWFLAKE_WAREHOUSE'),
+        database=os.getenv('SNOWFLAKE_DATABASE'),
+        schema=os.getenv('SNOWFLAKE_SCHEMA')
+    )
+    return conn
 
 
 def getdata():
         
         load_dotenv()
-
-        with open ('appsetting.json') as f:
-            setting = json.load(f)
-
-        os.environ['KAGGLE_USERNAME'] = os.getenv("KaggleUsername")
-        os.environ['KAGGLE_KEY'] =  os.getenv("KaggleAPIKey")
-
-        api = KaggleApi()
-        api.authenticate()
+        os.environ['KAGGLEHUB_CACHE'] = os.path.abspath('./rawdata')
+        os.environ['KAGGLE_API_TOKEN'] = os.getenv('KaggleAPIKey')
+        cache_path = kagglehub.dataset_download("olistbr/brazilian-ecommerce")
         
-        api.dataset_download_files(  setting["Kaggle"]["DatasetName"] ,path=setting["Kaggle"]["DownloadPath"],unzip=True)
+        conn = get_snowflake_connection()
+        cs = conn.cursor()
+        UploadedFiles = []
+        try:
+              for file in os.listdir(cache_path):
+                     file = os.path.join(cache_path,file)
+
+                     if os.path.isfile(file):
+                            filepath = file.replace("\\","/")
+                            putcommand = f"PUT 'file://{filepath}' @CAPSTONERAWDATAFILES  AUTO_COMPRESS=FALSE OVERWRITE=TRUE"
+                            cs.execute(putcommand)
+
+                            filename = os.path.basename(filepath)
+                            UploadedFiles.append(filename)
+          
+        finally:
+               cs.close()
+               conn.close()
+                
+        shutil.rmtree('./rawdata', ignore_errors=True)
+        return UploadedFiles
+
+
+def cleandata():
+       a= True
+       conn = get_snowflake_connection()
+       cs = conn.cursor()
+        
+
+       return a
  
-        return True
+  
