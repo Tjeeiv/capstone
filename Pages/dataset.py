@@ -1,7 +1,7 @@
 import streamlit as st
 from Services.datasetservice import getdata
 from Services.datacleanservice import cleandata , buildgold
-st.title("Get dataset from source")
+st.title("Buliding Data")
 
 
 if st.button("Get Dataset"):

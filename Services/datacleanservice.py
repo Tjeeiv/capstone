@@ -4,8 +4,7 @@ from Services.snowflakeconnector import get_snowflake_connection
 
 def readtable(conn, schema, table):
     df = pd.read_sql(f"SELECT * FROM {schema}.{table}", conn)
-    
-    # Auto-detect and convert likely datetime columns
+           
     for col in df.columns:
         if "DATE" in col or "TIMESTAMP" in col:
             df[col] = pd.to_datetime(df[col], errors="coerce")
@@ -27,7 +26,7 @@ def cleanorders(conn):
         "ORDERDELIVEREDCARRIERDATE", "ORDERDELIVEREDCUSTOMERDATE",
         "ORDERESTIMATEDDELIVERYDATE"]
     for col in datecols:
-        df[col] = pd.to_datetime(df[col] , errors= "coerce")
+        df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime('%Y-%m-%d %H:%M:%S')
     
     df = df .dropna(subset=["ORDERID"]).drop_duplicates()
 
@@ -41,7 +40,7 @@ def cleanorderitems(conn):
 
     df["PRICE"] = pd.to_numeric(df["PRICE"], errors="coerce")
     df["FREIGHTVALUE"] = pd.to_numeric(df["FREIGHTVALUE"], errors="coerce")
-    df["SHIPPINGLIMITDATE"] = pd.to_datetime(df["SHIPPINGLIMITDATE"], errors="coerce")
+    df["SHIPPINGLIMITDATE"] = pd.to_datetime(df["SHIPPINGLIMITDATE"], errors="coerce").dt.strftime('%Y-%m-%d %H:%M:%S')
 
     df = df.dropna(subset=["ORDERID", "PRODUCTID"]).drop_duplicates()
     writetable(conn, df, "SILVER", "ORDERITEMS")
@@ -67,8 +66,8 @@ def cleanproducts(conn):
 def cleanorderreviews(conn):
     df = readtable(conn, "BRONZE", "ORDERREVIEW")
 
-    df["REVIEWCREATIONDATE"] = pd.to_datetime(df["REVIEWCREATIONDATE"], errors="coerce")
-    df["REVIEWANSWERTIMESTAMP"] = pd.to_datetime(df["REVIEWANSWERTIMESTAMP"], errors="coerce")
+    df["REVIEWCREATIONDATE"] = pd.to_datetime(df["REVIEWCREATIONDATE"], errors="coerce").dt.strftime('%Y-%m-%d %H:%M:%S')
+    df["REVIEWANSWERTIMESTAMP"] = pd.to_datetime(df["REVIEWANSWERTIMESTAMP"], errors="coerce").dt.strftime('%Y-%m-%d %H:%M:%S')
     df["REVIEWSCORE"] = pd.to_numeric(df["REVIEWSCORE"], errors="coerce")
 
     df = df.dropna(subset=["REVIEWID", "ORDERID", "REVIEWSCORE"]).drop_duplicates()
@@ -79,9 +78,9 @@ def cleandata():
     conn = get_snowflake_connection()
     try:
         results = {
-            # "Orders": cleanorders(conn),
-            # "OrderItems": cleanorderitems(conn),
-            # "Products": cleanproducts(conn),
+            "Orders": cleanorders(conn),
+            "OrderItems": cleanorderitems(conn),
+            "Products": cleanproducts(conn),
             "OrderReview": cleanorderreviews(conn)
         }
     finally:
@@ -95,12 +94,13 @@ def buildgoldsales(conn):
 
     df = orders.merge(items, on="ORDERID").merge(products, on="PRODUCTID")
     df = df[df["ORDERSTATUS"] == "delivered"]
-
-    # Force conversion to datetime before using .dt
+ 
     df["ORDERPURCHASETIMESTAMP"] = pd.to_datetime(df["ORDERPURCHASETIMESTAMP"], errors="coerce")
 
     df["ORDERMONTH"] = df["ORDERPURCHASETIMESTAMP"].dt.to_period("M").astype(str)
     df["TOTALREVENUE"] = df["PRICE"] + df["FREIGHTVALUE"]
+ 
+    df["ORDERPURCHASETIMESTAMP"] = df["ORDERPURCHASETIMESTAMP"].dt.strftime('%Y-%m-%d %H:%M:%S')
 
     gold = df[[
         "ORDERID", "ORDERPURCHASETIMESTAMP", "ORDERMONTH",
@@ -117,6 +117,8 @@ def buildgoldreviews(conn):
     products = readtable(conn, "SILVER", "PRODUCTS")
 
     df = reviews.merge(items, on="ORDERID").merge(products, on="PRODUCTID")
+ 
+    df["REVIEWCREATIONDATE"] = pd.to_datetime(df["REVIEWCREATIONDATE"], errors="coerce").dt.strftime('%Y-%m-%d %H:%M:%S')
 
     gold = df[[
         "REVIEWID", "ORDERID", "PRODUCTID", "PRODUCTCATEGORY",
