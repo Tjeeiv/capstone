@@ -23,8 +23,9 @@ if st.button("Clean Data"):
         try:
 
             results = cleandata()
-            goldresult = buildgold()
             st.write(f"Number of files uploaded : {results }")
+            goldresult = buildgold()
+           
             st.write(f"Number of files uploaded : {goldresult }")
              
 

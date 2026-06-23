@@ -3,7 +3,7 @@ import shutil
 from dotenv import load_dotenv
 from kaggle.api.kaggle_api_extended import KaggleApi
 import kagglehub 
-from snowflakeconnector import get_snowflake_connection
+from Services.snowflakeconnector import get_snowflake_connection
 
 def getdata( ):
         
