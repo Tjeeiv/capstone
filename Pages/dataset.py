@@ -1,7 +1,7 @@
 import streamlit as st
 from Services.datasetservice import getdata
-from Services.datasetservice import cleandata
-st.title("Get dataset from source")
+from Services.datacleanservice import cleandata , buildgold
+st.title("Buliding Data")
 
 
 if st.button("Get Dataset"):
@@ -22,10 +22,12 @@ if st.button("Clean Data"):
     with st.spinner("Cleaning Inprogress.."):
         try:
 
-            uploadedfiles = cleandata()
-
-            st.write(f"Number of files uploaded : {len(uploadedfiles) }")
-            st.write("***Files***", uploadedfiles)
+            results = cleandata()
+            st.write(f"Number of files uploaded : {results }")
+            goldresult = buildgold()
+           
+            st.write(f"Number of files uploaded : {goldresult }")
+             
 
             
 
