@@ -5,6 +5,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+import faiss
+import numpy as np
+import os
 # load_dotenv()
 
 # os.environ['KAGGLEHUB_CACHE'] = os.path.abspath('./rawdata')
@@ -30,7 +33,7 @@ from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 def monthlyfeatures():
 
      sales, reviews = fetchgolddata()
-
+     
      monthdf = sales.groupby("ORDERMONTH").agg(
           monthrev = ("TOTALREVENUE","sum"),
           monthorderitemcount = ("TOTALREVENUE" , "count"),
@@ -87,4 +90,66 @@ def trainmodel():
 }
 
 
-print(trainmodel())
+# print(trainmodel())
+
+from sentence_transformers import SentenceTransformer
+
+def getreviewsforembedding():
+
+    sales, reviews = fetchgolddata()
+    df = reviews[["REVIEWID", "REVIEWCOMMENTMESSAGE"]]
+    df = df.dropna(subset=["REVIEWCOMMENTMESSAGE"])
+    df = df[df["REVIEWCOMMENTMESSAGE"].str.strip() != ""]
+    return df
+
+def generateembeddings(df):
+
+    model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+    review = df["REVIEWCOMMENTMESSAGE"].tolist()
+    encode = model.encode(review)
+    return df , encode
+    
+VECTOR_STORE_DIR = "./vectorstore"
+os.makedirs(VECTOR_STORE_DIR, exist_ok=True)
+
+def build_faiss_index(df, vectors):
+    dimension = vectors.shape[1]
+    index = faiss.IndexFlatL2(dimension)
+    index.add(np.array(vectors).astype('float32'))
+
+    index_path = os.path.join(VECTOR_STORE_DIR, "review_index.faiss")
+    mapping_path = os.path.join(VECTOR_STORE_DIR, "review_mapping.csv")
+
+    faiss.write_index(index, index_path)
+    df.reset_index(drop=True).to_csv(mapping_path, index=True)
+
+    return index
+
+# df = getreviewsforembedding()
+# sample = df
+# embedded_df, vectors = generateembeddings(sample)
+# print(vectors.shape)
+# print(vectors[0][:5])
+
+# ind = build_faiss_index(embedded_df, vectors)
+# print(ind)
+def search_reviews(query, top_k=5):
+    model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+    
+    # Step 1: load the saved FAISS index and mapping
+    index = faiss.read_index("./vectorstore/review_index.faiss")
+    mapping = pd.read_csv("./vectorstore/review_mapping.csv")
+    
+    # Step 2: convert the query into a vector (same model, same process)
+    query_vector = model.encode([query]).astype('float32')
+    
+    # Step 3: ask FAISS for the top_k closest matches
+    distances, indices = index.search(query_vector, top_k)
+    
+    # Step 4: look up the actual review text using the returned positions
+    results = mapping.iloc[indices[0]]
+    
+    return results
+
+results = search_reviews("fast delivery, great product")
+print(results)
