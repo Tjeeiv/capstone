@@ -5,28 +5,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-# load_dotenv()
 
-# os.environ['KAGGLEHUB_CACHE'] = os.path.abspath('./rawdata')
-# os.environ['KAGGLE_API_TOKEN'] = os.getenv('KaggleAPIKey')
-
-# import kagglehub
-# cache_path = kagglehub.dataset_download("olistbr/brazilian-ecommerce")
-# print("Downloaded to:", cache_path)
-
-# # Copy files to your clean target folder
-# destination = "./data"
-# os.makedirs(destination, exist_ok=True)
-
-# for file in os.listdir(cache_path):
-#     src = os.path.join(cache_path, file)
-#     dst = os.path.join(destination, file)
-#     if os.path.isfile(src):
-#         shutil.copy(src, dst)
-
-# print("Files copied to:", destination)
-# print("Files:", os.listdir(destination))
-
+"""
+feature preparation one row per month 
+from sales data aggregate per month total revenue, count of orders, average revenue, month number
+"""
 def monthlyfeatures():
 
      sales, reviews = fetchgolddata()
@@ -37,23 +20,13 @@ def monthlyfeatures():
           monthordercount = ("ORDERID" , "nunique"),
           monthavgrevenue= ("TOTALREVENUE","mean")
      )
-     monthdf.index = pd.to_datetime(monthdf.index, format="%Y-%m")
-     full_range = pd.date_range(start=monthdf.index.min(), end=monthdf.index.max(), freq="MS")
-     monthdf = monthdf.reindex(full_range, fill_value=0)
-     monthdf.index = monthdf.index.strftime("%Y-%m")
-     monthdf.index.name = "ORDERMONTH"
-
      monthdf["monthnumber"] = pd.to_datetime(monthdf.index, format="%Y-%m").month
+     
      return monthdf
-
-
- 
-
 
 def trainmodel():
      df = monthlyfeatures()
-     print("Total months:", len(df))
-     print(df.index.tolist())
+
      encode = pd.get_dummies(df["monthnumber"], prefix="month")
 
      df = pd.concat([df,encode] , axis = 1)
@@ -71,11 +44,7 @@ def trainmodel():
      model.fit(X_train, y_train)       
 
      predictions = model.predict(X_test)
-     comparison = pd.DataFrame({
-         "actual": y_test.values,
-         "predicted": predictions
-     }, index=y_test.index)
-     print(comparison)
+
      accuracy = r2_score(y_test, predictions)
      mae = mean_absolute_error(y_test, predictions)
      rmse = mean_squared_error(y_test, predictions) ** 0.5
@@ -85,6 +54,3 @@ def trainmodel():
     "mae": mae,
     "rmse": rmse
 }
-
-
-print(trainmodel())
