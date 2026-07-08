@@ -1,5 +1,5 @@
 import streamlit as st 
-from Services.mlservice import monthlyfeatures, trainmodel
+from Services.mlservice import monthlyfeatures, trainandsave
 
 st.title("ML - Sales Forecasting")
 
@@ -17,7 +17,7 @@ if st.button("Show Monthly Features"):
 if st.button("Train Model"):
     with st.spinner("Training Linear Regression model..."):
         try:
-            results = trainmodel()
+            results = trainandsave()
             st.subheader("Model Evaluation Metrics")
             st.write(f"**R² Score:** {results['r2_score']:.4f}")
             st.write(f"**MAE (Mean Absolute Error):** {results['mae']:,.2f}")
