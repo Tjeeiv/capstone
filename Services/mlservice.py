@@ -3,54 +3,61 @@ from Services.visualizeservice import fetchgolddata
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
 """
-feature preparation one row per month 
-from sales data aggregate per month total revenue, count of orders, average revenue, month number
+Feature preparation: one row per month
+Aggregate per month: total revenue, count of orders, average revenue, month number
 """
+
 def monthlyfeatures():
+    sales, reviews = fetchgolddata()
 
-     sales, reviews = fetchgolddata()
+    monthdf = sales.groupby("ORDERMONTH").agg(
+        monthrev=("TOTALREVENUE", "sum"),
+        monthorderitemcount=("TOTALREVENUE", "count"),
+        monthordercount=("ORDERID", "nunique"),
+        monthavgrevenue=("TOTALREVENUE", "mean")
+    )
 
-     monthdf = sales.groupby("ORDERMONTH").agg(
-          monthrev = ("TOTALREVENUE","sum"),
-          monthorderitemcount = ("TOTALREVENUE" , "count"),
-          monthordercount = ("ORDERID" , "nunique"),
-          monthavgrevenue= ("TOTALREVENUE","mean")
-     )
-     monthdf["monthnumber"] = pd.to_datetime(monthdf.index, format="%Y-%m").month
-     
-     return monthdf
+    # Fix missing months (e.g. 2016-11 had no data, causes wrong shift() pairing)
+    monthdf.index = pd.to_datetime(monthdf.index, format="%Y-%m")
+    full_range = pd.date_range(start=monthdf.index.min(), end=monthdf.index.max(), freq="MS")
+    monthdf = monthdf.reindex(full_range, fill_value=0)
+    monthdf.index = monthdf.index.strftime("%Y-%m")
+    monthdf.index.name = "ORDERMONTH"
+
+    monthdf["monthnumber"] = pd.to_datetime(monthdf.index, format="%Y-%m").month
+
+    return monthdf
+
 
 def trainmodel():
-     df = monthlyfeatures()
+    df = monthlyfeatures()
 
-     encode = pd.get_dummies(df["monthnumber"], prefix="month")
+    encode = pd.get_dummies(df["monthnumber"], prefix="month")
+    df = pd.concat([df, encode], axis=1)
+    df = df.drop(columns=["monthnumber"])
 
-     df = pd.concat([df,encode] , axis = 1)
-     df= df.drop(columns =["monthnumber"])
-     df["targetnextmonthrevenue"] = df["monthrev"].shift(-1)
-     df = df.dropna(subset=["targetnextmonthrevenue"])
-     X = df.drop(columns=["targetnextmonthrevenue"])
-     y = df["targetnextmonthrevenue"]
-     scaler = StandardScaler()
-     numeric_cols = ["monthrev", "monthorderitemcount", "monthordercount", "monthavgrevenue"]
-     X[numeric_cols] = scaler.fit_transform(X[numeric_cols])
+    df["targetnextmonthrevenue"] = df["monthrev"].shift(-1)
+    df = df.dropna(subset=["targetnextmonthrevenue"])
 
-     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
-     model = LinearRegression()
-     model.fit(X_train, y_train)       
+    X = df.drop(columns=["targetnextmonthrevenue"])
+    y = df["targetnextmonthrevenue"]
 
-     predictions = model.predict(X_test)
+    scaler = StandardScaler()
+    numeric_cols = ["monthrev", "monthorderitemcount", "monthordercount", "monthavgrevenue"]
+    X[numeric_cols] = scaler.fit_transform(X[numeric_cols])
 
-     accuracy = r2_score(y_test, predictions)
-     mae = mean_absolute_error(y_test, predictions)
-     rmse = mean_squared_error(y_test, predictions) ** 0.5
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
 
-     return {
-    "r2_score": accuracy,
-    "mae": mae,
-    "rmse": rmse
-}
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+
+    predictions = model.predict(X_test)
+
+    return {
+        "r2_score": r2_score(y_test, predictions),
+        "mae": mean_absolute_error(y_test, predictions),
+        "rmse": mean_squared_error(y_test, predictions) ** 0.5
+    }
