@@ -13,6 +13,13 @@ try:
 except Exception as e:
     print(f"❌ Failed to register predict router: {e}")
 
+try:
+    from api.routes import assistant
+    app.include_router(assistant.router)
+    print("✅ assistant router registered")
+except Exception as e:
+    print(f"❌ Failed to register assistant router: {e}")
+
 @app.get("/")
 def root():
     return {"status": "SmartRetail 360 API is running"}

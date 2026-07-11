@@ -153,3 +153,4 @@ def search_reviews(query, top_k=5):
 
 results = search_reviews("fast delivery, great product")
 print(results)
+
